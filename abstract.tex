@@ -1,0 +1,16 @@
+In modern compilers, single static assignment (SSA) has become a standard theory
+for internal representations. A fundamental part of SSA is calculating and using
+domination relations that determines where variables can be referenced.  A data
+structure called the dominator tree has historically been a very good
+approximation of the dominator relation. Unfortunately, there are programs in
+which the dominator tree fails to capture precise dominator relations,
+preventing optimizations. In this paper, we give examples of these kinds of
+programs, and show how generalizing the dominator tree to a directed acyclic
+graph (DAG) computes more precise domination relations, enabling more
+optimizations for sequential programs. We implement the approach in LLVM, a
+popular optimizing SSA compiler.  
+
+In addition to improving optimizations for sequential programs, we discuss
+applications to concurrent SSA theory. We discuss how SSA can be extended with
+concurrent semantics, and why the dominator DAG is necessary to capture precise
+domination relation for any concurrent semantics. 
