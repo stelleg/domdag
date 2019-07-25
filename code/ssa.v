@@ -82,30 +82,31 @@ Inductive pathind (f : function) : label → Prop :=
       pathind f l → 
       pathind f l'.
 
-Inductive cfg_valid_ind : list label → function → Prop :=
-  | cfg_head : ∀ f, cfg_valid_ind [entry] f 
+Inductive cfg_valid_ind (entry: label) : path → function → Prop :=
+  | cfg_head : ∀ f, cfg_valid_ind entry [entry] f 
   | cfg_tail : ∀ x y f ls, 
-    cfg f x y → 
-    cfg_valid_ind (y::ls) f → 
-    cfg_valid_ind (x::y::ls) f.
+    cfg f y x → 
+    cfg_valid_ind entry (y::ls) f → 
+    cfg_valid_ind entry (x::y::ls) f.
 
-Inductive ds_valid_ind : path → function → list (var*bool) → Prop :=
-  | ds_head : ∀ f vs, ds_valid_ind [entry] f vs 
+Inductive ds_valid_ind (entry:label) : path → function → list (var*bool) → Prop :=
+  | ds_head : ∀ f vs, 
+      ds_valid_ind entry [entry] f vs 
   | ds_jump : ∀ f vs x y bb ls, 
       (x, bb) ∈ f → getTerm bb = jump y →
-      ds_valid_ind (y::ls) f vs →
-      ds_valid_ind (x::y::ls) f vs
+      ds_valid_ind entry (x::ls) f vs →
+      ds_valid_ind entry (y::x::ls) f vs
   | ds_brt : ∀ f v vs x tb fb bb ls, 
       (x, bb) ∈ f → getTerm bb = br v tb fb → (v,false) ∉ vs →
-      ds_valid_ind (tb::ls) f ((v,true)::vs) →
-      ds_valid_ind (x::tb::ls) f vs
+      ds_valid_ind entry (x::ls) f ((v,true)::vs) →
+      ds_valid_ind entry (tb::x::ls) f vs
   | ds_brf : ∀ f v vs x tb fb bb ls, 
       (x, bb) ∈ f → getTerm bb = br v tb fb → (v,true) ∉ vs →
-      ds_valid_ind (fb::ls) f ((v,false)::vs) →
-      ds_valid_ind (x::fb::ls) f vs
+      ds_valid_ind entry (x::ls) f ((v,false)::vs) →
+      ds_valid_ind entry (fb::x::ls) f vs
 .
 
-Lemma ds_valid_cfg : ∀ p f vs, ds_valid_ind p f vs → cfg_valid_ind p f.
+Lemma ds_valid_cfg : ∀ p f vs entry, ds_valid_ind entry p f vs → cfg_valid_ind entry p f.
 intros. induction H. 
   - constructor. 
   - constructor. unfold cfg. exists bb0. split; auto. unfold outEdges. rewrite
@@ -119,6 +120,7 @@ Qed.
 Inductive before : label → label → path → Prop :=
   | before_head : ∀ x y p, before x y (x::p)
   | before_tail : ∀ x y z p, z ≠ y → before x y p → before x y (z::p).
+
 
 Definition dominates (a b : label) (valid : path → Prop) : Prop := 
   ∀ p, valid p → b ∈ p → before a b p. 
