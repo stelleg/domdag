@@ -19,14 +19,14 @@ Variable (label_eq : dec_eq label).
 Variable (entry : label).
 
 Inductive term : Type := 
-  | ret : term
-  | jump : label → term
-  | br : var → label → label → term
+  | ret
+  | jump (l : label)
+  | br (v : var) (l : label) (l : label)
   .
 
 Inductive bb : Type := 
-  | bbinstr : instr → bb → bb
-  | bbterm : term → bb
+  | bbinstr (i : instr) (b : bb)
+  | bbterm (t : term)
   . 
 
 (* Every funcion must have an entry basic block *)
