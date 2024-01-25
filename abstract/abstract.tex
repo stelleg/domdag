@@ -29,9 +29,15 @@ programs, and show how removing the restriction to trees enables more precise
 domination relations, therefore enabling more optimization. We discuss how one
 can use properties of SSA to implement a more general domination relation using
 a small set of trees corresponding to shared branches, which we call a
-dominator \emph{grove}. 
+dominator \emph{grove}. We present a work-in-progress implementation of a
+dominator grove in LLVM, along with some of the current hurdles in modifying
+the existing analyses and transformations to be sound in the presence of
+non-tree domination relations. Using the implementation, we collect empirical
+data on the frequency of non-tree domination relations in real code. We present
+some basic formal properties of the approach, and end with a discussion of
+future work, including concurrent extensions to SSA theory.  
 
-\section*{Theoretical Motivation}
+\section*{Motivation}
 Recall the definition of domination in the context of programs: a node $a$
 dominates a node $b$ if every \emph{valid} path from the entry block to $b$ goes
 through $a$. Note that we specify valid paths explicitly, as historically
@@ -51,7 +57,7 @@ void f(bool c, int x){
 }
 \end{lstlisting}
 \end{minipage}
-Note that there are two valid paths through the program: one which calls
+Note that there are two valid paths through the function: one which calls
 \texttt{pre} and \texttt{post} and one which doesn't. Therefore, by the
 definition of domination, the call to \texttt{post} is dominated by the call to
 \texttt{pre}. Representing the domination relations graphically gives: 
@@ -68,6 +74,7 @@ definition of domination, the call to \texttt{post} is dominated by the call to
 (b) edge (c);
 \end{tikzpicture}
 \end{center} 
+which is clearly not a tree.
 
 \section*{Implementation}
 The crucial property that lets us refine the notion of valid paths and
@@ -96,7 +103,7 @@ discuss some of the challenges in removing these assumptions from LLVM, and
 hope to get feedback from the community on the cost of addressing these
 assumptions.
 
-\section*{Empirical Motivation}
+\section*{Empirical Results}
 In the above example we've shown the existence of programs with non-tree
 domination relations, but a natural question is how often these kinds of
 programs occur in the wild. To measure this, we run the implementation
@@ -105,6 +112,16 @@ $\sim55$ million calls to \texttt{dominates}, $\sim1.9$ million calls are made
 more precise by the dominator grove, or $\sim3.5\%$. This shows that there are
 a non-trivial number of non-tree domination relations in real world code. We
 look forward to discussing a further breakdown of the data with the community.
+
+\section*{Verification}
+In the interest of ensuring correctness of the approach, we've proved a number
+of simple but important properties. First, and most obviously, every valid path 
+through the program is a valid path through the CFG. Next, following direcly
+from the above property, every dominator grove relation is at least as precise 
+as a dominator tree. In other words, if a relation holds for the dominator tree, 
+then it holds for the dominator grove. This ensures that we are strictly
+improving on the existing approach, and never decreasing the amount of
+domination relations that can be used to enable optimizations.
 
 \section*{Concurrency}
 In addition to improving optimizations for sequential programs, we argue that 
@@ -115,5 +132,12 @@ each other, but both dominate the join point. We look forward to discussing
 with the community further how SSA and LLVM can be extended with concurrent
 semantics, and why the dominator tree constraint must be relaxed to take full
 advantage of optimizations in the presence of concurrency.
+
+\section*{Future Work}
+While adding the ability to compute more precise domination relations requires
+a fairly small change, it's not clear how much existing code that assumes a 
+dominator tree structure in analysis and transformation passes will need to be
+changed. We hope to get feedback from the community on how best to move forward
+to maximize likelihood of getting the approach integrated into LLVM. 
 
 \end{document}
