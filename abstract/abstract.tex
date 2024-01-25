@@ -3,8 +3,8 @@
 \usepackage{amsmath}
 \usepackage{tikz}
 \usepackage{sectsty}
-\title{Domination is not a Tree \\
-\Large{Towards More Precise Domination Relations}}
+\title{Dominance is not a Tree \\
+\Large{Towards More Precise Dominance Relations}}
 \date{Jan 25, 2024}
 \author{George Stelle \; Tarun Prabhu \; Pat McCormick \\ Los Alamos National Laboratory}
 
@@ -20,32 +20,32 @@
 In LLVM and other modern compilers, single static assignment (SSA) is a crucial
 theory for internal representations, enabling optimizations in the presence of
 imperative code. A fundamental function of SSA is calculating and using
-domination relations to determine where immutable variables can be referenced.
+dominance relations to determine where immutable variables can be referenced.
 Dominator trees have historically been a good approximation of the dominator
-relation and efficiently computable. Unfortunately, there are programs for
-which the dominator tree fails to capture precise domination relations,
-preventing optimizations. In this work, we will give examples of these kinds of
-programs, and show how removing the restriction to trees enables more precise
-domination relations, therefore enabling more optimization. We discuss how one
-can use properties of SSA to implement a more general domination relation using
-a small set of trees corresponding to shared branches, which we call a
-dominator \emph{grove}. We present a work-in-progress implementation of a
-dominator grove in LLVM, along with some of the current hurdles in modifying
-the existing analyses and transformations to be sound in the presence of
-non-tree domination relations. Using the implementation, we collect empirical
-data on the frequency of non-tree domination relations in real code. We present
-some basic formal properties of the approach, and end with a discussion of
-future work, including concurrent extensions to SSA theory.  
+relation and efficiently computable. However, there are programs for which the
+dominator tree fails to capture precise dominance relations, preventing
+optimizations. In this work, we will give examples of these kinds of programs,
+and show how removing the restriction to trees enables more precise dominance
+relations, therefore enabling more optimization. We discuss how one can use
+properties of SSA to implement a more general dominance relation using a small
+set of trees corresponding to shared branches, which we call a dominator
+\emph{grove}. We present a work-in-progress implementation of a dominator grove
+in LLVM, along with some of the current hurdles in modifying the existing
+analyses and transformations to be sound in the presence of non-tree dominance
+relations. Using the implementation, we collect empirical data on the frequency
+of non-tree dominance relations in real code. We present some basic formal
+properties of the approach, and end with a discussion of future work, including
+concurrent extensions to SSA theory.  
 
 \section*{Motivation}
-Recall the definition of domination in the context of programs: a node $a$
+Recall the definition of dominance in the context of programs: a node $a$
 dominates a node $b$ if every \emph{valid} path from the entry block to $b$ goes
 through $a$. Note that we specify valid paths explicitly, as historically
-domination has focused on any path through the control flow graph (CFG).
-Because we care about domination in \emph{programs}, we need to reason about
+dominance has focused on any path through the control flow graph (CFG).
+Because we care about dominance in \emph{programs}, we need to reason about
 valid paths beyond just the CFG. 
 
-To understand non-tree domination relations, consider the following simple
+To understand non-tree dominance relations, consider the following simple
 example: 
 \begin{minipage}{\linewidth}
 \begin{lstlisting}[language=C]
@@ -59,8 +59,8 @@ void f(bool c, int x){
 \end{minipage}
 Note that there are two valid paths through the function: one which calls
 \texttt{pre} and \texttt{post} and one which doesn't. Therefore, by the
-definition of domination, the call to \texttt{post} is dominated by the call to
-\texttt{pre}. Representing the domination relations graphically gives: 
+definition of dominance, the call to \texttt{post} is dominated by the call to
+\texttt{pre}. Representing the dominance relations graphically gives: 
 \begin{center}
 \begin{tikzpicture}[->, line width=0.3mm]
 \node(entry) at (2,3) {\texttt{entry}};
@@ -78,16 +78,15 @@ which is clearly not a tree.
 
 \section*{Implementation}
 The crucial property that lets us refine the notion of valid paths and
-therefore refine the domination relation is that whenever there are multiple
-conditional branches that share a static condition variable, we can construct
-two distinct dominator trees that correspond to case analysis on the value of
-the shared condition variable. If a domination relation holds for both
-dominator trees, then it holds in the general case. We call this structure a
-dominator \emph{grove}, as it contains a small set of trees. Because of this 
-dependence on condition variables, one can view this approach as a class of 
-\emph{context-sensitive} domination relations. This is in contrast to the
-dominator tree, which is computed solely with knowledge of the CFG, and no
-further context.
+therefore refine the dominance relation is that whenever there are multiple
+conditional branches that share a immutable condition variable $c$, we can construct
+two distinct dominator trees for cases where $c=0$ and $c=1$. If a dominance
+relation holds for both dominator trees, then it holds in the general case. We
+call this structure a dominator \emph{grove}, as it contains a small set of
+trees. Because of this dependence on condition variables, one can view this
+approach as a class of \emph{context-sensitive} dominance relations. This is in
+contrast to the dominator tree, which is computed from the CFG, and no further
+context.
 
 We present an initial implementation of the dominator grove approach in LLVM.
 By modifying the existing implementation of incremental dominator tree updates,
@@ -95,22 +94,23 @@ we show how one can extend the implementation of dominator trees to implement
 dominator groves in a way that requires only a relatively small change to the
 codebase. 
 
-While the implementation successfully computes more precise domination
-relations, there is a problem: existing code doesn't just query domination
-relations: it \emph{assumes dominator tree structure}. These assumptions are
-violated by the more precise domination relations, causing compiler bugs. We
-discuss some of the challenges in removing these assumptions from LLVM, and
-hope to get feedback from the community on the cost of addressing these
-assumptions.
+While the implementation successfully computes more precise dominance
+relations, there is a problem: the extra precision breaks existing analysis and
+transformation passes. While we're still not sure what causes all of the issues, 
+we believe it to be due to assumptions about the structure of dominance. These
+assumptions are violated by the more precise dominance relations, causing
+compiler bugs. We discuss some of the challenges in removing these assumptions
+from LLVM, and hope to get feedback from the community on the cost of addressing
+these assumptions.
 
 \section*{Empirical Results}
 In the above example we've shown the existence of programs with non-tree
-domination relations, but a natural question is how often these kinds of
+dominance relations, but a natural question is how often these kinds of
 programs occur in the wild. To measure this, we run the implementation
 described above on \texttt{llvm-test-suite}. We discover that out of the
 $\sim55$ million calls to \texttt{dominates}, $\sim1.9$ million calls are made
 more precise by the dominator grove, or $\sim3.5\%$. This shows that there are
-a non-trivial number of non-tree domination relations in real world code. We
+a non-trivial number of non-tree dominance relations in real world code. We
 look forward to discussing a further breakdown of the data with the community.
 
 \section*{Verification}
@@ -121,11 +121,11 @@ from the above property, every dominator grove relation is at least as precise
 as a dominator tree. In other words, if a relation holds for the dominator tree, 
 then it holds for the dominator grove. This ensures that we are strictly
 improving on the existing approach, and never decreasing the amount of
-domination relations that can be used to enable optimizations.
+dominance relations that can be used to enable optimizations.
 
 \section*{Concurrency}
 In addition to improving optimizations for sequential programs, we argue that 
-removing the tree constraints from domination relations is necessary to build a
+removing the tree constraints from dominance relations is necessary to build a
 concurrent SSA theory. To be able to run two pieces of code concurrently, then
 wait for them to finish, we need to be able to represent that neither dominate
 each other, but both dominate the join point. We look forward to discussing
@@ -134,7 +134,7 @@ semantics, and why the dominator tree constraint must be relaxed to take full
 advantage of optimizations in the presence of concurrency.
 
 \section*{Future Work}
-While adding the ability to compute more precise domination relations requires
+While adding the ability to compute more precise dominance relations requires
 a fairly small change, it's not clear how much existing code that assumes a 
 dominator tree structure in analysis and transformation passes will need to be
 changed. We hope to get feedback from the community on how best to move forward
